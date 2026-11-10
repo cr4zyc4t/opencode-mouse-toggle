@@ -1,0 +1,13 @@
+{
+  "name": "opencode-alt-mouse",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "OpenCode TUI plugin: hold Alt to hand the mouse back to the terminal (native select/scroll), release to restore capture.",
+  "exports": {
+    "./tui": "./src/tui.ts"
+  },
+  "dependencies": {
+    "@opencode/plugin": "latest"
+  }
+}
