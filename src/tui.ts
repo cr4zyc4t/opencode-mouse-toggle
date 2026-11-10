@@ -1,7 +1,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 
 /**
- * alt-mouse: hands mouse capture (renderer.useMouse) to the terminal while a trigger key is
+ * mouse-toggle: hands mouse capture (renderer.useMouse) to the terminal while a trigger key is
  * active, so clicks/drags/wheel do native selection & scrollback; the trigger hands the mouse
  * back to OpenCode.
  *
@@ -58,7 +58,7 @@ interface RendererLike {
 }
 
 export default Plugin.define({
-  id: "vq.alt-mouse",
+  id: "vq.mouse-toggle",
   setup(context) {
     const options = (context.options ?? {}) as { toast?: boolean; trigger?: Trigger }
     const trigger = TRIGGERS[options.trigger ?? "alt"] ?? TRIGGERS.alt
@@ -74,7 +74,7 @@ export default Plugin.define({
 
     if (renderer.useMouse === false) {
       context.ui.toast.show({
-        title: "alt-mouse",
+        title: "mouse-toggle",
         message: 'cli.json has "mouse": false — set it to true so OpenCode keeps the mouse, handing it to the terminal only while the trigger key is active',
         variant: "warning",
         duration: 8000,
@@ -168,7 +168,7 @@ export default Plugin.define({
       }
       patchMouseEvent()
       renderer.prependInputHandler(handler)
-      show(`alt-mouse ready: ${trigger.name} (${usingKitty ? "kitty" : "fallback"})`)
+      show(`mouse-toggle ready: ${trigger.name} (${usingKitty ? "kitty" : "fallback"})`)
     }
 
     const initial = renderer.capabilities

@@ -1,4 +1,6 @@
-# opencode-alt-mouse
+# opencode-mouse-toggle
+
+> GitHub: [cr4zyc4t/opencode-mouse-toggle](https://github.com/cr4zyc4t/opencode-mouse-toggle)
 
 Quickly **toggle OpenCode TUI mouse capture on/off with one key**, so you can copy/paste in
 terminals where the OpenCode TUI's own selection/copy doesn't work — without giving up mouse
@@ -31,22 +33,45 @@ This plugin makes it a **one-key toggle** instead of a config edit + restart:
 
 ## Install
 
-1. Register the plugin in `~/.config/opencode/cli.json`:
+Add it to `~/.config/opencode/cli.json` — OpenCode installs the plugin straight from GitHub
+(first start downloads it; subsequent starts are instant):
 
-   ```jsonc
-   {
-     "mouse": true, // keep OpenCode mouse capture on; the plugin hands it to the terminal on demand
-     "plugins": [
-       {
-         "package": "/home/toanvq/projects/opencode-mouse",
-         "options": { "trigger": "insert", "toast": false }
-       }
-     ]
-   }
-   ```
+```jsonc
+{
+  "mouse": true, // keep OpenCode mouse capture on; the plugin hands it to the terminal on demand
+  "plugins": [
+    {
+      "package": "github:cr4zyc4t/opencode-mouse-toggle",
+      "options": { "trigger": "insert", "toast": false }
+    }
+  ]
+}
+```
 
-2. Reload the TUI (`Ctrl+P` → reload config, or restart it). You should see a toast
-   `alt-mouse ready: insert (...)` when `toast: true`.
+Pin a version if you want (branch, tag, or commit):
+
+```jsonc
+"plugins": ["github:cr4zyc4t/opencode-mouse-toggle@main"]
+```
+
+Then reload the TUI (`Ctrl+P` → reload config, or restart it). With `"toast": true` you'll see
+a confirmation toast `mouse-toggle ready: insert (...)`.
+
+<details>
+<summary>Alternatives: clone from GitHub, or develop from a checkout</summary>
+
+```sh
+git clone https://github.com/cr4zyc4t/opencode-mouse-toggle ~/.config/opencode/plugins/mouse-toggle
+```
+
+and point the entry at the folder (a plain path is loaded from disk, no install step — edits
+apply on config reload):
+
+```jsonc
+"plugins": [{ "package": "/home/you/.config/opencode/plugins/mouse-toggle", "options": { "trigger": "insert" } }]
+```
+
+</details>
 
 ## Usage
 
