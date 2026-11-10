@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "OpenCode TUI plugin: hold Alt to hand the mouse back to the terminal (native select/scroll), release to restore capture.",
+  "description": "OpenCode TUI plugin: one-key (Insert) mouse-capture toggle for code-server, where TUI selection/copy never reaches the clipboard; keeps full mouse support the rest of the time.",
   "exports": {
     "./tui": "./src/tui.ts"
   },

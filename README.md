@@ -1,104 +1,103 @@
 # opencode-alt-mouse
 
-An OpenCode **TUI plugin**: while you **hold a trigger key (Alt by default, configurable)**,
-OpenCode's mouse capture is turned off (`renderer.useMouse = false`), so the terminal handles
-the mouse natively — text selection, copy, scrollback — exactly like when `"mouse": false` is
-set in `cli.json`. Release the key and OpenCode reclaims the mouse.
+Quickly **toggle OpenCode TUI mouse capture on/off with one key**, so you can copy/paste in
+terminals where the OpenCode TUI's own selection/copy doesn't work — without giving up mouse
+features the rest of the time.
 
-This gives you both worlds: OpenCode's clicks/drags/wheel normally, and native terminal
-selection without editing config or restarting.
+## Why this plugin exists
+
+I run OpenCode inside **code-server**'s integrated terminal. There is a known bug there:
+**mouse text-selection and any kind of copy inside the OpenCode TUI does not reach the
+clipboard** — selecting with the mouse or using OpenCode's copy paths never lands in your real
+clipboard (browser ↔ code-server clipboard plumbing breaks it).
+
+The only documented workaround is turning off the mouse feature entirely:
+
+```jsonc
+// ~/.config/opencode/cli.json
+{ "mouse": false }
+```
+
+…but that is all-or-nothing: you also lose **mouse wheel scrolling, clicking session tabs,
+clicking files in the diff viewer, links**, everything.
+
+This plugin makes it a **one-key toggle** instead of a config edit + restart:
+
+- `"mouse": true` stays in your config — all OpenCode mouse features work normally.
+- Press **Insert** → mouse capture is released to the terminal, so the browser's **native
+  select → Ctrl+Shift+C / right-click copy** works on the transcript, and wheel scrolls the
+  terminal's own scrollback.
+- Press **Insert** again (or just start typing) → OpenCode gets the mouse back.
 
 ## Install
 
-1. Register it in `~/.config/opencode/cli.json`:
+1. Register the plugin in `~/.config/opencode/cli.json`:
 
    ```jsonc
    {
-     "mouse": true, // keep OpenCode mouse capture on; the plugin pauses it while Alt is held
+     "mouse": true, // keep OpenCode mouse capture on; the plugin hands it to the terminal on demand
      "plugins": [
        {
-         "package": "/home/toanvq/projects/opencode-mouse"
+         "package": "/home/toanvq/projects/opencode-mouse",
+         "options": { "trigger": "insert", "toast": false }
        }
      ]
    }
    ```
 
-2. Restart the TUI (or press `Ctrl+P` → *Open settings* / `/reload` for a config reload;
-   plugin list changes are picked up when `cli.json` reloads).
+2. Reload the TUI (`Ctrl+P` → reload config, or restart it). You should see a toast
+   `alt-mouse ready: insert (...)` when `toast: true`.
 
-### Options
+## Usage
 
-```jsonc
-"plugins": [
-  {
-    "package": "/home/toanvq/projects/opencode-mouse",
-    "options": {
-      "trigger": "ctrl", // alt (default) | ctrl | shift | super
-      "toast": false // toast on every capture toggle (debug aid)
-    }
-  }
-]
-```
+| Trigger | Semantics |
+| --- | --- |
+| `insert` (default), `menu` | **Press = toggle.** Mouse passes through to the terminal and stays there; press again — or type any key — to give it back to OpenCode. Great UX for "select a big region and copy". |
+| `alt`, `ctrl`, `shift`, `super` | **Hold.** Mouse passes through only while the key is held, exact via kitty keyboard release events. |
 
-## Which trigger key to use
+Toggle keys are recommended because they conflict with nothing and work even in terminals
+without kitty keyboard support.
 
-Conflict scan (as of Nov 2026):
+### Why not Alt?
+
+**VS Code / code-server hardcodes Alt+drag as rectangular/block selection** (crosshair "+"
+cursor), so Alt is useless as a text-selection modifier there. Conflict scan (Nov 2026):
 
 | Key | VS Code terminal | OpenCode | Linux desktop | Verdict |
 | --- | --- | --- | --- | --- |
-| Alt | **Alt+drag = block select, "+" cursor** (hardcoded) | — | — | ✗ your original problem |
-| Ctrl | **Ctrl+wheel = font zoom**; Ctrl+click extends selection while captured | Ctrl shortcuts micro-toggle capture | — | ⚠ works but busiest key |
-| Super | free | free | **Activities overlay grabs Super** on GNOME/KDE | ⚠ |
-| **Insert** | free | **unbound** | free | ✅ **recommended** |
-| Menu | free | unbound | free | ✅ if your keyboard has it (many laptops don't) |
-
-`alt`/`ctrl`/`shift`/`super` are **hold** triggers: mouse passes through while held.
-`insert`/`menu` are **toggle** triggers (terminals can't report their release): press once →
-mouse goes to the terminal and *stays* there; press again — or just start typing — to give it
-back to OpenCode. This is often nicer anyway: click Insert, drag-select as much as you want,
-press Insert again when done.
-
-### Recommended VS Code setting
-
-Enable the kitty keyboard protocol so OpenCode gets exact press/release events (better kitty
-path, and Insert/Menus keys report events too):
-
-```jsonc
-// VS Code settings.json
-{ "terminal.integrated.enableKittyKeyboardProtocol": true }
-```
-
-Not required: the Insert toggle also works over the legacy `CSI 2~` sequence without it.
+| Alt | Alt+drag = block select | — | — | ✗ |
+| Ctrl | Ctrl+wheel = font zoom | Ctrl+click extends selection; many Ctrl chords | — | ⚠ |
+| Super | free | free | Activities overlay grabs Super | ⚠ |
+| **Insert** | **free** | **unbound** | free | ✅ recommended |
+| Menu | free | unbound | free | ✅ if keyboard has it |
 
 ## How it works
 
-The plugin toggles `renderer.useMouse` (the same switch the `"mouse"` setting controls):
+The plugin toggles `renderer.useMouse` (the same switch the `"mouse"` setting controls) by
+hooking raw input in `setup()`:
 
-1. **Kitty keyboard protocol terminals** (kitty, Ghostty, foot, WezTerm, VS Code, …):
-   the plugin pushes the *event-types* flag (`CSI > 3 u`), so the terminal reports the trigger
-   key itself being pressed/released as CSI-u events (functional codes, e.g. 57442/57448 for
-   left/right Ctrl). Trigger down → capture off; trigger up → capture back. Exact and immediate.
-2. **Fallback** (no kitty keyboard, or standalone modifier events unsupported):
-   - *hold* triggers: the plugin wraps opentui's `processSingleMouseEvent`, so the first
-     trigger+click/wheel turns capture off **from that gesture onward**; capture returns on the
-     next keyboard input that isn't trigger-modified.
-   - *toggle* triggers (insert/menu): the legacy press sequence (`CSI 2~` / `CSI 29~`) flips the
-     mode directly — no first-gesture loss.
+1. **Kitty keyboard protocol terminals** (VS Code/code-server ≥ 1.109 with
+   `terminal.integrated.enableKittyKeyboardProtocol`, kitty, Ghostty, foot, WezTerm, …): the
+   plugin pushes the *event-types* flag (`CSI > 3 u`) and watches CSI-u events — functional key
+   codes report every trigger key (Insert = 57348, left/right Alt = 57443/57449, …) with press
+   *and release* for hold triggers.
+2. **Fallback** (no kitty keyboard): toggle triggers react to the legacy press sequence
+   (`CSI 2~` / `CSI 29~`) — works even in code-server with the protocol off. Hold triggers wrap
+   opentui's `processSingleMouseEvent` (opentui consumes mouse events before input handlers
+   while capture is on) and disable on the first trigger-modified gesture. Plain keyboard input
+   always restores capture as a safety net.
 
-## Known limitations
+## Limitations
 
-- If your terminal **already bypasses mouse reporting on Alt/Option** (iTerm2's default
-  *Option ⌥ bypasses Mouse Reporting*, xterm `Alt*Mouse` resources), native selection already
-  works there; this plugin just makes the switch explicit and works in terminals where Alt is
-  passed through (Ghostty, kitty, Windows Terminal, GNOME Terminal...).
-- Inside `tmux`/`Zellij`, keyboard protocol support depends on multiplexer configuration
-  (`set -s extended-keys on` for tmux); otherwise the fallback path applies.
-- If a dialog or the `mouse: false` setting turns capture off on its own, the plugin defers to
-  it on release (it only ever toggles what it disabled).
-- The pushed kitty event-types flag is left enabled after the plugin unloads; stray key-release
-  events are ignored by OpenCode.
+- If OpenCode itself turns mouse capture off (e.g. `"mouse": false`), the plugin shows a
+  warning and stays out of the way.
+- On kitty-capable terminals the toggle ignores key *release* events by design; typing restores
+  capture even if you forget to toggle back.
+- Clipboard in code-server still requires the browser's own copy (Ctrl+Shift+C / context menu)
+  once the mouse is native — that is the point: OpenCode's broken copy path is bypassed
+  entirely.
 
 ## Files
 
-- `src/tui.ts` — the whole plugin (~100 lines).
+- `src/tui.ts` — the whole plugin (~190 lines).
 - Loaded by OpenCode through `cli.json → plugins[].package`, entry point `exports["./tui"]`.
